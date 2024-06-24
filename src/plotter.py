@@ -2,8 +2,8 @@
 
 import cupy as cp
 from matplotlib.collections import LineCollection
-import matplotlib.pyplot as plt
 import numpy as np
+
 
 def _graphene_lines(row, col, sqrt3, lc, lbp, colors, lw, ls, alpha, zorder):
     """Return the bond lines of a graphene lattice unit cell as a LineCollection object."""
@@ -38,6 +38,12 @@ def _graphene_lines(row, col, sqrt3, lc, lbp, colors, lw, ls, alpha, zorder):
     ])
     return LineCollection(bonds + lbp, colors=colors, lw=lw, ls=ls, alpha=alpha, zorder=zorder)
 
+def figsize_xscale(L):
+    return (L._n_columns*L._lc) / (L._n_rows*L._lc*np.sqrt(3))
+
+def figsize_yscale(L):
+    return (L._n_rows*L._lc*np.sqrt(3)) / (L._n_columns*L._lc)
+
 def plot_graphenebonds(ax, L, colors='b', lw=0.5, ls='--', alpha=0.25, zorder=2):
     """Plot the graphene lattice lines on a given axis."""
     lbp = L._lbp.get()
@@ -48,14 +54,23 @@ def plot_graphenebonds(ax, L, colors='b', lw=0.5, ls='--', alpha=0.25, zorder=2)
 
 def plot_kagomesites(ax, L, s=35, c='k', ec='k', alpha=0.3, zorder=3):
     """Plot the Kagome lattice sites on a given axis."""
-    lxy = L.get_latticesites.get()
+    lxy = L.get_latticesites().get()
     ax.scatter(lxy[:,0], lxy[:,1], s=s, c=c, ec=ec, alpha=alpha, zorder=zorder)
     return ax
 
 def plot_latticeenergies(ax, LE, boxsize, angle=0., shift=[0., 0.], nsamples=1000, cmap='viridis', alpha=0.2, zorder=1):
+    """Plot the lattice energies on a given axis."""
     xtri = cp.linspace(0.0, boxsize[0], nsamples)
     ytri = cp.linspace(0.0, boxsize[1], nsamples)
     Xtri, Ytri = cp.meshgrid(xtri, ytri)
     Utri = LE.U(Xtri, Ytri, angle, shift)
     ax.contourf(Xtri.get(), Ytri.get(), Utri.get(), cmap='viridis', alpha=0.2, zorder=zorder)
+    return ax
+
+def plot_molecules(ax, mnnxy, show_nn=False, s=100, mc='tab:red', nnc='yellow', ec='k', lw=2.5, alpha=1.0, zorder=4):
+    """Plot the molecules on a given axis."""
+    # Highlight the site corresponding to the selected ID in red
+    ax.scatter(mnnxy[:,0,0], mnnxy[:,0,1], s=s, c=mc, ec=ec, lw=lw, alpha=alpha, zorder=zorder)
+    # Highlight the nearest-neighbors of selected ID in yellow
+    if show_nn: ax.scatter(mnnxy[:,1:,0], mnnxy[:,1:,1], s=s, c=nnc, ec=ec, lw=lw, alpha=alpha, zorder=zorder)
     return ax

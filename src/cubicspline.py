@@ -6,12 +6,14 @@
 #
 # This code was adapted from the more general Interpolation_CUPY project found at:
 # https://github.com/GavinJiacheng/Interpolation_CUPY
+
 import cupy as cp
 import functools
 from numba import cuda
 from numpy.linalg import LinAlgError
 import operator
 import scipy.linalg as scl
+
 
 @cuda.jit('void(float64[:,:,:], float64[:], float64[:], float64[:,:])')
 def evaluate(c, x, xp, out):
