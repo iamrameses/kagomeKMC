@@ -94,7 +94,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         # Update the molecule's new position to the chosen nearest neighbor
         ids[0,mol_id] = lnnids[ids[0]][mol_id,nn_id+1]
         if i % int(0.1*nwarmupsteps)-1 == 0:
-            print(f'Warm-up step {i+1} / {nwarmupsteps} completed.', end='\r', flush=True)
+            print(f'Warm-up step {i+1:g} / {nwarmupsteps:g} completed.', end='\r', flush=True)
 
     # Actual KMC steps
     print(f'\nStarting KMC steps...')
@@ -149,13 +149,13 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
             temp_target = temp_i - (1/frames_per_kelvin)
             # Update the frame number
             framenum += 1 
-            print(f'KMC step {i+1} | Temperature {temp_i:.1f} K | Simulation time = {times[framenum+1]}', end='\r', flush=True)
+            print(f'KMC step {i+1:g} | Temperature {temp_i:.1f} K | Simulation time = {times[framenum+1]:g} s', end='\r', flush=True)
         else:
             # Update the molecule's new position to the chosen nearest neighbor
             ids[framenum,mol_id] = lnnids[ids[framenum]][mol_id,nn_id+1]
         # Apply early stopping if the KMC step time intervals are too large
         if dt > 10:
-            print(f'\nKMC step time intervals are too large: {dt:.2f} seconds. Exiting simulation...')
+            print(f'\nKMC step time intervals are too large: {dt:g} seconds. Exiting simulation...')
             break
         # Increment the KMC step counter
         i += 1
