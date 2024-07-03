@@ -21,7 +21,7 @@ def pairwise_distance3(a, dims):
     Returns
     -------
     dist : array-like (cupy.ndarray)
-        (M,N)-shaped array that contains the pairwise distances between the 
+        (M,N,M)-shaped array that contains the pairwise distances between the 
         M points and their N nearest neighbors.
     """
     dist = cp.empty((a.shape[0], a.shape[1], a.shape[0], 2), dtype='float64')

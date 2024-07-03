@@ -16,6 +16,10 @@ class KagomeLattice(object):
         Lattice constant of the Kagome lattice in nm.
     energy_barrier : float, optional
         Diffusion energy barrier of lattice in Kelvin.
+    debye_freq : float, optional
+        Debye frequency of the lattice in Hz.
+    transition_type : str, optional
+        Type of nearest-neighbor transitions to consider.
     intdtype : str, optional
         Data type for integer values.
     floatdtype : str, optional
@@ -25,6 +29,10 @@ class KagomeLattice(object):
     ----------
     boxsize : tuple
         Dimensions of the simulation box in nm.
+    center_xy : tuple
+        XY-coordinates of the center of the simulation box in nm.
+    debye_frequency : float
+        Debye frequency of the lattice in Hz.
     energy_barrier : float
         Energy barrier for the simulation in Kelvin.
     lattice_constant : float
@@ -38,15 +46,19 @@ class KagomeLattice(object):
 
     Methods
     -------
-    get_latticesites : CuPy array
-        Returns the XY-coordinates of the lattice sites.
     generate_randomids : CuPy array
         Generates random indices for placing molecules on the lattice.
+    get_latticesites : CuPy array
+        Returns the XY-coordinates of the lattice sites.
+    get_sitennids : CuPy array
+        Returns the nearest-neighbor indices of the lattice sites.
+    
     """
-    def __init__(self, boxwidth, lattice_constant=0.246, energy_barrier=275.0, transition_type='t', intdtype='int32', floatdtype='float64'):
+    def __init__(self, boxwidth=102.336, lattice_constant=0.246, energy_barrier=275.0, debye_freq=10e10, transition_type='t', intdtype='int32', floatdtype='float64'):
         self._bw = float(boxwidth)
         self._lc = float(lattice_constant)
         self._eb = float(energy_barrier)
+        self._freq = float(debye_freq)
         self._idtype = intdtype
         self._fdtype = floatdtype
         self._sqrt3 = sqrt(3)
@@ -56,10 +68,11 @@ class KagomeLattice(object):
         self._n_rows = int(cp.round(self._n_columns / self._sqrt3))
         # Total number of sites on the lattice
         self._n_totalsites = int(6 * self._n_columns * self._n_rows) 
-        # Lattice dimensions (not including padding for periodic boundary conditions)
-        self._dims = cp.array([self._lc * self._n_columns, self._lc * self._sqrt3 * self._n_rows], self._fdtype)
         # Lattice padding required for periodic boundary conditions
         self._lbp = cp.array([1., self._sqrt3], dtype=self._fdtype) * 0.125 * self._lc
+        # Lattice dimensions (not including padding for periodic boundary conditions)
+        self._dims = cp.array([self._lc * self._n_columns, self._lc * self._sqrt3 * self._n_rows], self._fdtype)
+        self._center_xy = self._dims / 2.
         # XY-coordinates of the 6 lattice sites that define the base unit cell
         self._unitcell = cp.array([
             [0.5, 0.],
@@ -102,7 +115,15 @@ class KagomeLattice(object):
 
     @property
     def boxsize(self): 
-        return tuple(self._dims.get())
+        return self._dims.get()
+    
+    @property
+    def center_xy(self):
+        return self._center_xy.get()
+    
+    @property
+    def debye_frequency(self):
+        return self._freq
 
     @property
     def energy_barrier(self): 
@@ -190,6 +211,8 @@ class KagomeLattice(object):
         CuPy array
             Random indices of the lattice sites where molecules are placed.
         """  
+        # Initialize random number generator with or without a defined seed
+        cp.random.seed(seed=seed)
         lc_threshold = threshold * self._lc
         attempts_left = n_attempts
         while attempts_left > 0:
@@ -199,8 +222,6 @@ class KagomeLattice(object):
                     site_ids = cp.arange(self._n_totalsites, dtype=self._idtype)
                 else:
                     site_ids = alt_site_ids
-                # Initialize random number generator with or without a defined seed
-                cp.random.seed(seed=seed)
                 # Randomize the order that these indices appear in the array
                 cp.random.shuffle(site_ids)
                 # Pre-allocate the array to hold the coordinate indices of each molecule
@@ -225,33 +246,6 @@ class KagomeLattice(object):
         if attempts_left == 0:
             raise ValueError(f'Failed to generate random indices after ({n_attempts}) maximum attempts.')
         return molecule_ids 
-    
-    def get_sitennids(self, site_numbers, tpb=32):
-        """Returns the nearest-neighbor indices of the lattice sites.
-
-        Site nearest-neighbors are defined by the transition type given during initialization of lattice object.
-            't'   - long translation-only 
-            'tr'  - short translation + 60-degree rotation
-            'tr2' - long translation + two 60-degree rotations
-
-        Parameters
-        ----------
-        site_numbers : CuPy array
-            Array of site indices for which to return the nearest-neighbor indices.
-        tpb : int, optional
-            Number of threads per block.
-
-        Returns
-        -------
-        CuPy array
-            Nearest-neighbor indices of the sites in the lattice.
-        """
-        bpg = lambda x, threads: (x + threads - 1) // threads
-        block = (tpb, 1, 1)
-        grid = (bpg(site_numbers.shape[0], block[0]), bpg(1, block[1]), 1)
-        output = cp.zeros((site_numbers.shape[0], 5), dtype=self._idtype)
-        self.__site_nnids_gpu[grid, block](output, site_numbers, self.__nns, self._n_columns, self._n_rows)
-        return output
     
     def get_latticesites(self, site_numbers=None, tpb=32): 
         """Returns the XY-coordinates of the lattice sites.
@@ -289,3 +283,30 @@ class KagomeLattice(object):
         else:
             raise ValueError('This function only supports 1D and 2D arrays.')
         return sites
+    
+    def get_sitennids(self, site_numbers, tpb=32):
+        """Returns the nearest-neighbor indices of the lattice sites.
+
+        Site nearest-neighbors are defined by the transition type given during initialization of lattice object.
+            't'   - long translation-only 
+            'tr'  - short translation + 60-degree rotation
+            'tr2' - long translation + two 60-degree rotations
+
+        Parameters
+        ----------
+        site_numbers : CuPy array
+            Array of site indices for which to return the nearest-neighbor indices.
+        tpb : int, optional
+            Number of threads per block.
+
+        Returns
+        -------
+        CuPy array
+            Nearest-neighbor indices of the sites in the lattice.
+        """
+        bpg = lambda x, threads: (x + threads - 1) // threads
+        block = (tpb, 1, 1)
+        grid = (bpg(site_numbers.shape[0], block[0]), bpg(1, block[1]), 1)
+        output = cp.zeros((site_numbers.shape[0], 5), dtype=self._idtype)
+        self.__site_nnids_gpu[grid, block](output, site_numbers, self.__nns, self._n_columns, self._n_rows)
+        return output

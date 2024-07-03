@@ -1,7 +1,11 @@
 # src/plotter.py
 
 import cupy as cp
-from matplotlib.collections import LineCollection
+import freud
+import matplotlib as mpl
+from matplotlib.collections import LineCollection, PatchCollection
+from matplotlib.colors import Normalize, ListedColormap
+from matplotlib.patches import Polygon
 import numpy as np
 
 
@@ -52,18 +56,55 @@ def plot_graphenebonds(ax, L, colors='b', lw=0.5, ls='--', alpha=0.25, zorder=2)
             ax.add_collection(_graphene_lines(col, row, L._sqrt3, L._lc, lbp, colors, lw, ls, alpha, zorder))
     return ax
 
+def plot_disclinations(fig, ax, L, mxy):
+    """Plot the disclinations on a given axis."""
+    # Define the colormap and normalization for the number of neighbors
+    cmap = ListedColormap(np.vstack([
+        mpl.cm.get_cmap('PRGn_r', 10)(np.arange(10))[np.array([3,2,1,0])],
+        [[0.,0.,1.,1.], [0.9,0.9,0.9,0.9], [1.,0.,0.,1.]],
+        mpl.cm.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
+    ]))
+    cnorm = Normalize(vmin=1-0.5, vmax=11+0.5)
+    # Compute the Voronoi tessellation and the hexatic order parameter
+    xdim, ydim = L.boxsize
+    box = freud.box.Box(Lx=xdim, Ly=ydim, Lz=0, is2D=True)
+    points = np.hstack((mxy-L.center_xy, np.zeros((mxy.shape[0], 1))))
+    vor = freud.locality.Voronoi()
+    psi6 = freud.order.Hexatic(k=6, weighted=False)
+    vor.compute(system=(box, points))
+    psi6.compute(system=(box, points), neighbors=vor.nlist)
+    psi6_k = psi6.particle_order
+    psi6_avg = np.mean(np.abs(psi6_k))
+    # psi6_phase = np.abs(np.angle(psi6.particle_order))
+    nsides = np.array([polytope.shape[0] for polytope in vor.polytopes])
+    print(f"Global bond orientational order: {psi6_avg}")
+    # Plot the Voronoi tessellation and the hexatic order parameter
+    patches = []
+    for polytope in vor.polytopes:
+        poly = Polygon(polytope[:,:2]+L.center_xy, closed=True, facecolor='r')
+        patches.append(poly)
+    collection = PatchCollection(patches, edgecolors='k', lw=0.3, cmap=cmap, norm=cnorm, alpha=0.6)
+    collection.set_array(nsides)
+    dax = ax.add_collection(collection)
+    # Plot the molecules
+    ax.scatter(mxy[:,0], mxy[:,1], s=1.5, c='k', zorder=2)
+    # Plot the colorbar
+    cbar = fig.colorbar(dax, ax=ax, ticks=np.arange(1, 12), shrink=0.75)
+    cbar.set_label(label='Number of Disclinations', labelpad=10., rotation=270, fontsize=12)
+    return fig, ax
+
 def plot_kagomesites(ax, L, s=35, c='k', ec='k', alpha=0.3, zorder=3):
     """Plot the Kagome lattice sites on a given axis."""
     lxy = L.get_latticesites().get()
     ax.scatter(lxy[:,0], lxy[:,1], s=s, c=c, ec=ec, alpha=alpha, zorder=zorder)
     return ax
 
-def plot_latticeenergies(ax, LE, boxsize, angle=0., shift=[0., 0.], nsamples=1000, cmap='viridis', alpha=0.2, zorder=1):
+def plot_latticeenergies(ax, LE, boxsize, nsamples=1000, cmap='viridis', alpha=0.2, zorder=1):
     """Plot the lattice energies on a given axis."""
     xtri = cp.linspace(0.0, boxsize[0], nsamples)
     ytri = cp.linspace(0.0, boxsize[1], nsamples)
     Xtri, Ytri = cp.meshgrid(xtri, ytri)
-    Utri = LE.U(Xtri, Ytri, angle, shift)
+    Utri = LE.U(Xtri, Ytri)
     ax.contourf(Xtri.get(), Ytri.get(), Utri.get(), cmap='viridis', alpha=0.2, zorder=zorder)
     return ax
 

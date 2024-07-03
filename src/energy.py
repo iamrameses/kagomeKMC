@@ -6,6 +6,7 @@ import numpy as np
 import scipy as sp
 
 from .constants import A0, KB, HT, HV
+from .cubicspline import CpCubicSpline
 
 
 # Wrapper for Scipy's Struve function of order 0 
@@ -14,19 +15,17 @@ _scipy_H0 = lambda x: sp.special.struve(0, x)
 # Wrapper for Scipy's Neumann function of order 0 (a.k.a. Bessel function of the second kind of order 0)
 _scipy_Y0 = lambda x: sp.special.y0(x)
 
-def ideal_boxwidths(tl_lc=4, tl_range=[2, 78], kl_lc=0.246, kl_range=[32, 1254], show_topn=10):
+def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, tl_range=[2, 78], kl_range=[32, 1254], show_topn=10):
     """Computes the ideal box widths for the triangular and Kagome lattices
 
     Parameters
     ----------
-    tl_lc : float
+    tri_lc : float
         The lattice constant of the triangular lattice (in nm)
-    tl_range : list
-        The range of box widths for the triangular lattice (in number of lattice constants)
-    kl_lc : float
+    kag_lc : float
         The lattice constant of the Kagome lattice (in nm)
-    kl_range : list
-        The range of box widths for the Kagome lattice (in number of lattice constants)
+    target_width : float
+        The target maximum box width (in nm) to consider
     show_topn : int
         The number of top box widths to display
 
@@ -35,20 +34,20 @@ def ideal_boxwidths(tl_lc=4, tl_range=[2, 78], kl_lc=0.246, kl_range=[32, 1254],
     None
     
     """
-    tle_x = tl_lc * np.arange(tl_range[0], tl_range[1])
-    tle_cols = np.array(tle_x//tl_lc, dtype=int)
+    tle_x = tri_lc * np.arange(2, int(target_width/tri_lc)+1)
+    tle_cols = np.array(tle_x//tri_lc, dtype=int)
     tle_rows = np.array(tle_cols/np.sqrt(3), dtype=int)
-    tle_y = tl_lc * np.sqrt(3) * tle_rows
-    print(f"tle_x (first and last value): {tle_x[0]}, {tle_x[-1]}")
-    kl_x = kl_lc * np.arange(kl_range[0], kl_range[1])
-    kl_cols = np.array(kl_x//kl_lc, dtype=int)
+    tle_y = tri_lc * np.sqrt(3) * tle_rows
+    print(f"Triangular lattice test widths (first and last value): {tle_x[0]}, {tle_x[-1]}")
+    kl_x = kag_lc * np.arange(int(2*tri_lc/kag_lc), int(np.ceil(target_width/kag_lc))+1)
+    kl_cols = np.array(kl_x//kag_lc, dtype=int)
     kl_rows = np.array(np.round(kl_cols/np.sqrt(3)), dtype=int)
-    kl_y = kl_lc * np.sqrt(3) * kl_rows
-    print(f"\nkl_x (first and last value): {kl_x[0]}, {kl_x[-1]}\n")
+    kl_y = kag_lc * np.sqrt(3) * kl_rows
+    print(f"\nKagome lattice test widths (first and last value): {kl_x[0]}, {kl_x[-1]}\n")
     min_ids = np.zeros(len(kl_x), dtype=int)
     min_vals = np.zeros(len(kl_x))
     min_diffs = np.zeros(len(kl_x))
-    print("Ideal box widths (sorted by L2-norm error):")
+    print(f"Top {int(show_topn)} ideal box widths (sorted by L2-norm error between lattice dimensions):")
     for i, (j, k) in enumerate(zip(kl_x, kl_y)):
         xdiffs = np.abs(tle_x-j)**2
         ydiffs = np.abs(tle_y-k)**2
@@ -61,6 +60,37 @@ def ideal_boxwidths(tl_lc=4, tl_range=[2, 78], kl_lc=0.246, kl_range=[32, 1254],
     min_diffs = min_diffs[sort_ids]
     for i in range(show_topn):
         print(f"#{i+1}: {min_vals[i]:.3f}nm | L2-norm error: {min_diffs[i]:.4f}")
+
+def interaction_energy_function(lattice, method='total_impurity', energy_params=None, nsamples=5e5):
+    """Computes the interaction energy function for the lattice
+
+    Parameters
+    ----------
+    lattice : KagomeLattice
+        The lattice object for which to compute the interaction energy function
+    method : str
+        The method to use for computing the interaction energy function.
+        Options are 'total_impurity'.
+        Default is 'total_impurity'. 
+    energy_params : dict
+        The parameters to use for computing the interaction energy function.
+        Default is None.
+    nsamples : int
+        The number of samples to use for computing the interaction energy function.
+        Default is 1e5 samples.
+
+    Returns
+    -------
+    en_function : CpCubicSpline
+        The interaction energy function for the lattice.
+        It is a cubic spline interpolation of the interaction energies.
+    
+    """
+    distances = cp.linspace(lattice.lattice_constant, np.max(lattice.boxsize), int(nsamples))
+    if method == 'total_impurity':
+        energies = total_impurity_energies(distances, **energy_params)
+    en_function = CpCubicSpline(distances, energies)
+    return en_function
 
 def kappa_h(eps_r=4.22, mu=0.100, v_f=1.49e6):
     """Computes the inverse screening radius in Hartree atomic units
@@ -77,7 +107,7 @@ def kappa_h(eps_r=4.22, mu=0.100, v_f=1.49e6):
     Returns
     -------
     kappa_h : float
-        The inverse screening radius in Hartree atomic units
+        The (dimensionless) inverse screening radius in Hartree atomic units
         
     """
     return (4 / eps_r) * (mu / HT) * ((HV**2) / (v_f**2))
@@ -153,18 +183,21 @@ class TriangularLatticeEnergies:
     lattice_constant : float
         The lattice constant of the triangular lattice
     amplitude : float
-        The amplitude of the potential energy
+        The amplitude of the potential energy in meV
 
     Methods
     -------
     U : array-like
-        Evaluates the potential energy at the given x, y coordinates
+        Evaluates the potential energy at the given x, y coordinates.
+        Returns the energy in dimensionless Hartree atomic units.
     """
-    def __init__(self, lattice_constant=4.0, amplitude=1.0):
+    def __init__(self, lattice_constant=3.936, amplitude=39.8, angle=0., shift=[0., 0.]):
         self.lattice_constant = lattice_constant
-        self.amplitude = amplitude * 11.605  # In terms of meV converted to Kelvin
+        self.amplitude = amplitude / 1000  # In terms of meV converted to eV
+        self.angle = angle
+        self.shift = shift
     
-    def U(self, x, y, angle=0., shift=[0., 0.]):
+    def U(self, x, y):
         """Evaluates potential at x, y coord lists
         x : list of x pos for [nparticles, nsteps]
         y : list of y pos for [nparticles, nsteps]
@@ -172,9 +205,10 @@ class TriangularLatticeEnergies:
         shift in energy is for numerical stability, since constant shift in energy
         only multiplies all rates by a common scale factor
         """
-        x2 = (x+shift[0])*cp.cos(angle) - (y+shift[1])*cp.sin(angle)
-        y2 = (x+shift[0])*cp.sin(angle) + (y+shift[1])*cp.cos(angle)
+        x2 = (x+self.shift[0])*cp.cos(self.angle) - (y+self.shift[1])*cp.sin(self.angle)
+        y2 = (x+self.shift[0])*cp.sin(self.angle) + (y+self.shift[1])*cp.cos(self.angle)
         a, A = self.lattice_constant, self.amplitude
         theta_x, theta_y = 2 * pi * x2 / a, 2 * pi * y2 / (a * np.sqrt(3))
         sigma = 2 * cp.cos(theta_x) * cp.cos(theta_y) + cp.cos(2 * (theta_y))
-        return (A * 2 / 9 * ((3 - sigma)))
+        # Return the potential energy in Hartree atomic units
+        return (A * 2 / 9 * ((3 - sigma))) / HT
