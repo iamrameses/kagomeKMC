@@ -6,7 +6,7 @@
 On the Open OnDemand Dashboard, go to "Clusters" -> ">_BRC Shell Access", then load the modules we need.
 
 ```commandline
-module load cuda gcc git
+module load python/3.11.4 cuda/12.2 gcc git
 ```
 
 Navigate to location where you want the repository and clone it.
@@ -15,20 +15,20 @@ Navigate to location where you want the repository and clone it.
 cd /global/home/users/<your_username>/
 git clone https://github.com/iamrameses/kagomeKMC.git
 ```
-Since Savio gives users a limited amount of space in our home directories, its best to install all conda environments and packages in our scratch folder. We also set conda's default solver to `libmamba` as it usually much faster at installing packages (be patient, as it can take a while).
+Since Savio gives users a limited amount of space in our home directories, its best to install all conda environments and packages in our scratch folder. We also set conda's default solver to `libmamba` as it usually much faster at installing packages (be patient, as it can take a while). If you encounter an error due to `libmamba`, just revert it back to the `classic` solver.
 
 ```commandline
 KMCENV=/global/scratch/users/<your_username>/environments/kagomekmc
 rm -rf $KMCENV
 export CONDA_PKGS_DIRS=/global/scratch/users/<your_username>/tmp/.conda
-conda create --prefix $KMCENV python=3.11.5
+conda create --prefix $KMCENV python=3.11
 source activate $KMCENV
 conda config --set solver libmamba
-conda install -c conda-forge cudatoolkit 
-conda install -c conda-forge cupy 
-conda install -c conda-forge numba 
-conda install -c conda-forge scipy pandas matplotlib ipympl freud
-pip install notebook
+conda install -c conda-forge cudatoolkit
+conda install -c conda-forge cupy
+conda install -c conda-forge numba
+conda install -c conda-forge freud
+conda install -c conda-forge pandas matplotlib ipympl
 conda install -c anaconda ipykernel
 python -m ipykernel install --user --name=kagomekmc
 ```
@@ -42,4 +42,4 @@ export CONDA_PKGS_DIRS=/global/scratch/users/<your_username>/tmp/.conda
 # Requesting a Jupyter Server interactive session with GPU 
 Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Savio partitions". Name the job whatever you like, but I would recommend the below settings as a V100 GPU is ideal for this simulation.
 
-<img src="images/jupyter_server_request_recommended_settings.png" alt="Example molecules and disclinations plot" width="500">\
+<img src="images/jupyter_server_request_recommended_settings.png" alt="Example molecules and disclinations plot" width="500">
