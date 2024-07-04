@@ -238,7 +238,7 @@ class KagomeLattice(object):
                     outside_threshold = cp.where(dists >= lc_threshold)[0]
                     # Remove those sites (that are too close to the assigned molecule) from site_ids
                     site_ids = site_ids[outside_threshold]
-                print(f"Generated {n_molecules} molecule indices in {n_attempts - attempts_left + 1} attempts.")
+                print(f"Generated {n_molecules} molecule position indices in {n_attempts - attempts_left + 1} attempts.")
                 break
             except:
                 attempts_left -= 1

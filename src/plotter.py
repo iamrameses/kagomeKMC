@@ -59,11 +59,18 @@ def plot_graphenebonds(ax, L, colors='b', lw=0.5, ls='--', alpha=0.25, zorder=2)
 def plot_disclinations(fig, ax, L, mxy):
     """Plot the disclinations on a given axis."""
     # Define the colormap and normalization for the number of neighbors
-    cmap = ListedColormap(np.vstack([
-        mpl.cm.get_cmap('PRGn_r', 10)(np.arange(10))[np.array([3,2,1,0])],
-        [[0.,0.,1.,1.], [0.9,0.9,0.9,0.9], [1.,0.,0.,1.]],
-        mpl.cm.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
-    ]))
+    try:
+        cmap = ListedColormap(np.vstack([
+            mpl.cm.get_cmap('PRGn_r', 10)(np.arange(10))[np.array([3,2,1,0])],
+            [[0.,0.,1.,1.], [0.9,0.9,0.9,0.9], [1.,0.,0.,1.]],
+            mpl.cm.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
+        ]))
+    except:
+        cmap = ListedColormap(np.vstack([
+            mpl.pyplot.get_cmap('PRGn_r', 10)(np.arange(10))[np.array([3,2,1,0])],
+            [[0.,0.,1.,1.], [0.9,0.9,0.9,0.9], [1.,0.,0.,1.]],
+            mpl.pyplot.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
+        ]))
     cnorm = Normalize(vmin=1-0.5, vmax=11+0.5)
     # Compute the Voronoi tessellation and the hexatic order parameter
     xdim, ydim = L.boxsize

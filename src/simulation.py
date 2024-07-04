@@ -82,8 +82,6 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
             mnnenergies = cp.add(mnnenergies, lat_energies(mnnxy[:,:,0], mnnxy[:,:,1]), out=mnnenergies)
         # Compute the transition rates of each molecule to its nearest neighbors
         rates = transition_rates(mnnenergies[:,0], mnnenergies[:,1:], temperature=temp_i)
-        # Multiply the rates by the Debye frequency and the energy barrier
-        rates = rates 
         # Compute the cumulative sum of the rates
         Kcumsum = cp.cumsum(rates)
         # Randomly choose the event time interval and transitioned molecule
@@ -93,7 +91,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         nn_id = chosenK_id % 4
         # Update the molecule's new position to the chosen nearest neighbor
         ids[0,mol_id] = lnnids[ids[0]][mol_id,nn_id+1]
-        if i % int(0.1*nwarmupsteps)-1 == 0:
+        if i % int(0.1*nwarmupsteps) == 0:
             print(f'Warm-up step {i+1:g} / {nwarmupsteps:g} completed.', end='\r', flush=True)
 
     # Actual KMC steps
@@ -107,6 +105,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         j = i % nwarmupsteps
         if j == 0:
             rands = cp.random.uniform(0., 0.9999999, size=(nwarmupsteps, 2))
+            print(f'KMC step {i+1:g} | Temperature {temp_i:.1f} K | Simulation time = {time_i:g} s', end='\r', flush=True)
         # Get the temperature at the current time
         temp_i = temp(time_i)
         # Get the xy-coordinates of the molecules and their nearest neighbors
@@ -134,7 +133,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         # Compute the time interval for the event
         dt = -cp.log(rands[j,1]) / (Kcumsum[-1] * lattice.debye_frequency * cp.exp(-lattice.energy_barrier / temp_i))
         # Update the time of the simulation
-        time_i += dt
+        time_i = time_i + dt
         if temp_i <= temp_target:
             # Copy the previous positions to the current step
             ids[framenum+1] = ids[framenum] 
