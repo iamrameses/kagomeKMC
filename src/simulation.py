@@ -8,7 +8,7 @@ from .pairwise_distance import pairwise_distance3
 from .temperature import temperature_function
 
 
-def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshold=6, frames_per_kelvin=30, nwarmupsteps=150000, seed=None): 
+def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshold=6, frames_per_kelvin=60, nwarmupsteps=50000, seed=None): 
     
     print('Setting up the simulation...')
     # Set the seed for reproducibility
@@ -65,7 +65,8 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
     temp_i = temp(0)
     
     # Warm up steps
-    print(f'Starting simulation warm-up steps at {temp_i:.1f} K...') 
+    print(f'Starting simulation warm-up steps at {temp_i:.2f} K...') 
+    update_interval = int(0.05*nwarmupsteps)
     for i in range(nwarmupsteps):
         # Get the xy-coordinates of the molecules and their nearest neighbors
         mnnxy = lxy[lnnids[ids[0]]]
@@ -90,9 +91,10 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         mol_id = chosenK_id // 4
         nn_id = chosenK_id % 4
         # Update the molecule's new position to the chosen nearest neighbor
-        ids[0,mol_id] = lnnids[ids[0]][mol_id,nn_id+1]
-        if i % int(0.1*nwarmupsteps) == 0:
+        ids[0,mol_id] = lnnids[ids[0]][mol_id,nn_id+1]        
+        if i % update_interval == 0:
             print(f'Warm-up step {i+1:g} / {nwarmupsteps:g} completed.', end='\r', flush=True)
+    print(f'Warm-up step {nwarmupsteps:g} / {nwarmupsteps:g} completed.', end='\r', flush=True)
 
     # Actual KMC steps
     print(f'\nStarting KMC steps...')
@@ -105,7 +107,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         j = i % nwarmupsteps
         if j == 0:
             rands = cp.random.uniform(0., 0.9999999, size=(nwarmupsteps, 2))
-            print(f'KMC step {i+1:g} | Temperature {temp_i:.1f} K | Simulation time = {time_i:g} s', end='\r', flush=True)
+            print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {time_i:g} s', end='\r', flush=True)
         # Get the temperature at the current time
         temp_i = temp(time_i)
         # Get the xy-coordinates of the molecules and their nearest neighbors
@@ -133,7 +135,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         # Compute the time interval for the event
         dt = -cp.log(rands[j,1]) / (Kcumsum[-1] * lattice.debye_frequency * cp.exp(-lattice.energy_barrier / temp_i))
         # Update the time of the simulation
-        time_i = time_i + dt
+        time_i += dt
         if temp_i <= temp_target:
             # Copy the previous positions to the current step
             ids[framenum+1] = ids[framenum] 
@@ -148,7 +150,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
             temp_target = temp_i - (1/frames_per_kelvin)
             # Update the frame number
             framenum += 1 
-            print(f'KMC step {i+1:g} | Temperature {temp_i:.1f} K | Simulation time = {times[framenum+1]:g} s', end='\r', flush=True)
+            print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {times[framenum+1]:g} s', end='\r', flush=True)
         else:
             # Update the molecule's new position to the chosen nearest neighbor
             ids[framenum,mol_id] = lnnids[ids[framenum]][mol_id,nn_id+1]
@@ -158,6 +160,7 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
             break
         # Increment the KMC step counter
         i += 1
+    print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {times[framenum+1]:g} s', end='\r', flush=True)
     # # End the simulation
     # end_cpu = time.perf_counter()
     # end_gpu.record()
