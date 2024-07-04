@@ -1,7 +1,7 @@
 # src/simulation.py
 
 import cupy as cp
-# import time
+import time
 
 from .energy import TriangularLatticeEnergies, interaction_energy_function, transition_rates
 from .pairwise_distance import pairwise_distance3
@@ -52,17 +52,17 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
     # Store the initial positions of the molecules
     ids[0,:] = mids 
 
-    # # Initialize the simulation
-    # start_gpu = cp.cuda.Event()
-    # end_gpu = cp.cuda.Event()
-    # start_gpu.record()
-    # start_cpu = time.perf_counter()
-
     # Generate random numbers for warmup steps
     rands = cp.random.uniform(0., 0.9999999, size=(nwarmupsteps, 2))
 
     # Get the temperature for the warm-up steps
     temp_i = temp(0)
+
+    # Timing the warm-up steps
+    start_gpu = cp.cuda.Event()
+    end_gpu = cp.cuda.Event()
+    start_gpu.record()
+    start_cpu = time.perf_counter()
     
     # Warm up steps
     print(f'Starting simulation warm-up steps at {temp_i:.2f} K...') 
@@ -95,6 +95,12 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         if i % update_interval == 0:
             print(f'Warm-up step {i+1:g} / {nwarmupsteps:g} completed.', end='\r', flush=True)
     print(f'Warm-up step {nwarmupsteps:g} / {nwarmupsteps:g} completed.', end='\r', flush=True)
+    
+    # Timing the warm-up steps
+    end_cpu = time.perf_counter()
+    end_gpu.record()
+    end_gpu.synchronize()
+    print(f'\nWarm-up steps completed in: {(end_cpu - start_cpu)/60:.3f} min CPU | {(cp.cuda.get_elapsed_time(start_gpu, end_gpu)/1000)/60:.3f} min GPU.')
 
     # Actual KMC steps
     print(f'\nStarting KMC steps...')
@@ -161,10 +167,6 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
         # Increment the KMC step counter
         i += 1
     print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {times[framenum+1]:g} s', end='\r', flush=True)
-    # # End the simulation
-    # end_cpu = time.perf_counter()
-    # end_gpu.record()
-    # end_gpu.synchronize()
     results = {
         'times': times.get(),
         'ids': ids.get(),
