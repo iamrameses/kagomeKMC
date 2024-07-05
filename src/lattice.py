@@ -187,7 +187,7 @@ class KagomeLattice(object):
             output[i,j,0] = unit_cell[unit_cell_num][0] + col_num * lc
             output[i,j,1] = unit_cell[unit_cell_num][1] + row_num * sqrt3 * lc
     
-    def generate_randomids(self, n_molecules, sites, alt_site_ids=None, n_attempts=100, threshold=5, seed=None):
+    def generate_randomids(self, n_molecules, sites, alt_site_ids=None, n_attempts=1000, threshold=5, seed=None):
         """Generates random indices for placing molecules on the lattice.
 
         Parameters
