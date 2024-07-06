@@ -110,10 +110,10 @@ def simulate(lattice, energy_params, temp_params, nmolecules, duration, threshol
     temp_target = cp.float64(temp_i - (1/frames_per_kelvin))
     while temp_i >= Tf:
         # Generate new random numbers every nwarmupsteps
-        j = i % nwarmupsteps
+        j = i % (2*nwarmupsteps)
         if j == 0:
-            rands = cp.random.uniform(0., 0.9999999, size=(nwarmupsteps, 2))
-            # print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {time_i:g} s', end='\r', flush=True)
+            rands = cp.random.uniform(0., 0.9999999, size=(2*nwarmupsteps, 2))
+            print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {time_i:g} s', end='\r', flush=True)
         # Get the temperature at the current time
         temp_i = temp(time_i)
         # Get the xy-coordinates of the molecules and their nearest neighbors

@@ -51,3 +51,66 @@ export CONDA_PKGS_DIRS=/global/scratch/users/<your_username>/tmp/.conda
 Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Savio partitions". Name the job whatever you like, but I would recommend the below settings as a V100 GPU is ideal for this simulation.
 
 <img src="images/jupyter_server_request_recommended_settings.png" alt="Example molecules and disclinations plot" width="500">
+
+## Running a simulation from a Jupyter Server interaction session notebook
+Once you are given access to a Jupyter server and launch it, you can either run the simulation from a Jupyter notebook or from a terminal window. If you use a Jupyter notebook, just make sure you change the kernel of the notebook to the one you created in the steps above (i.e. `kagomekmc`). From there you can follow similar steps as those shown in the tutorial notebook `examples/240609_kagomeKMC_v1_tutorial.ipynb`.
+
+## Running a simulation from a Jupyter Server interaction session terminal
+You can also run the simulation from the Jupyter Server terminal window, by first modifying the `main.py` file (if needed) with your desired parameters and save it. The in the terminal window, navigate to the main folder of the repository (i.e. `~/kagomeKMC`). We can then load the required modules (if not already done), activate the appropriate conda environment, and run the simulation.
+
+```commandline
+module load python/3.11.4 cuda/12.2 gcc
+conda activate kagomekmc
+cd kagomeKMC
+python -m src.main
+```
+
+##  Running a simulation via a SLURM job script file
+You can also run a simulation by scheduling it to run via a SLURM job script (no need to launch an interactive session). This method benefits from only using the amount of compute needed for running the simulation, as it requests for a compute node, runs the simulation when a compute node is made available, and automatically terminates the compute node when the simulation is complete. 
+
+The following modifications should be made to the example job script file below:
+- Modify the `main.py` file as needed (see above).
+- Create a `.sh` job script file (i.e. `kagomekmc.sh`). This needs to only be done once, afterwhich you can just edit the file as needed.
+- For `--job-name=`, this can be any name but can only contain letters or dashes.
+- For `--account=`, change `account_name` to the name of the project.
+- Change `source activate kagomekmc` to whatever you named your environment in the previous steps.
+- Change `cd kagomekmc` to the path of the main repository directory.
+
+```commandline
+#!/bin/bash
+# Job name:
+#SBATCH --job-name=kagomekmc
+#
+# Account:
+#SBATCH --account=account_name
+#
+# Partition:
+#SBATCH --partition=savio3_gpu
+#
+# Number of nodes:
+#SBATCH --nodes=1
+#
+# Number of tasks (one for each GPU desired for use case) (example):
+#SBATCH --ntasks=1
+#
+# Processors per task:
+#SBATCH --cpus-per-task=4
+#
+# Number of GPUs:
+#SBATCH --gres=gpu:V100:1
+#
+# Wall clock limit:
+#SBATCH --time=48:00:00
+#
+## Commands to run:
+module load python/3.11.4 cuda/12.2 gcc
+source activate kagomekmc
+cd kagomeKMC
+python -m src.main
+```
+
+Then in "Clusters" -> ">_BRC Shell Access", enter the following `sbatch` command to run the simulation in the background:
+
+```commandline
+sbatch kagomekmc.sh
+```

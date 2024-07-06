@@ -1,6 +1,7 @@
 # src/temperature.py
 
 import cupy as cp
+
 from .cubicspline import CpCubicSpline
 
 
@@ -37,7 +38,7 @@ def temperature_function(duration, temp_initial, temp_final=8.5, nsamples=1e7,  
         Ambient temperature (temperature that simulations cools to) in Kelvin.
     """
     # Calculate times array
-    times = cp.linspace(0, duration+(0.5*duration), int(nsamples))
+    times = cp.linspace(0, duration+(0.25*duration), int(nsamples))
     if method == 'linear':
         if cooling_constant is None:
             # Calculate cooling constant
