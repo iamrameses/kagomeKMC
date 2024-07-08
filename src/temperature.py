@@ -1,8 +1,7 @@
 # src/temperature.py
 
-import cupy as cp
-
-from .cubicspline import CpCubicSpline
+import numpy as np
+import scipy as sp
 
 
 def temperature_function(duration, temp_initial, temp_final=8.5, nsamples=1e7,  method='linear', cooling_constant=None):
@@ -38,7 +37,7 @@ def temperature_function(duration, temp_initial, temp_final=8.5, nsamples=1e7,  
         Ambient temperature (temperature that simulations cools to) in Kelvin.
     """
     # Calculate times array
-    times = cp.linspace(0, duration+(0.25*duration), int(nsamples))
+    times = np.linspace(0, 30*duration, int(nsamples), dtype='float64')
     if method == 'linear':
         if cooling_constant is None:
             # Calculate cooling constant
@@ -47,14 +46,14 @@ def temperature_function(duration, temp_initial, temp_final=8.5, nsamples=1e7,  
         temps = temp_initial - cooling_constant * times
     elif method == 'exponential':
         if cooling_constant is None:
-            cooling_constant = cp.log(temp_initial - temp_final) / duration
+            cooling_constant = np.log(temp_initial - temp_final) / duration
         # Calculate temperatures using Newton's Law of Cooling
-        temps = temp_final + (temp_initial - temp_final) * cp.exp(-cooling_constant * times)
+        temps = temp_final + (temp_initial - temp_final) * np.exp(-cooling_constant * times)
     elif method == 'inv_exponential':
         if cooling_constant is None:
-            cooling_constant = cp.log((temp_initial - temp_final)*(2*duration)) / duration
+            cooling_constant = np.log((temp_initial - temp_final)*(2*duration)) / duration
         # Calculate temperatures using inverse Newton's Law of Cooling
-        temps = temp_initial - (1/(2*duration)) * cp.exp(cooling_constant * times)
+        temps = temp_initial - (1/(2*duration)) * np.exp(cooling_constant * times)
     # Return cubic spline interpolation of temperatures
-    tempfunction = CpCubicSpline(times, temps)
+    tempfunction = sp.interpolate.CubicSpline(times, temps)
     return tempfunction, temp_initial, temp_final

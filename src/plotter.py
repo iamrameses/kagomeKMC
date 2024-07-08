@@ -1,12 +1,17 @@
 # src/plotter.py
 
 import cupy as cp
-import freud
 import matplotlib as mpl
+import matplotlib.animation as animation
 from matplotlib.collections import LineCollection, PatchCollection
 from matplotlib.colors import Normalize, ListedColormap
-from matplotlib.patches import Polygon
+from matplotlib.gridspec import GridSpec
+import matplotlib.pyplot as plt
 import numpy as np
+
+from .analysis import get_disclinations, get_global_orientational_order
+from .lattice import KagomeLattice
+from .energy import TriangularLatticeEnergies
 
 
 def _graphene_lines(row, col, sqrt3, lc, lbp, colors, lw, ls, alpha, zorder):
@@ -72,24 +77,7 @@ def plot_disclinations(fig, ax, L, mxy):
             mpl.pyplot.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
         ]))
     cnorm = Normalize(vmin=1-0.5, vmax=11+0.5)
-    # Compute the Voronoi tessellation and the hexatic order parameter
-    xdim, ydim = L.boxsize
-    box = freud.box.Box(Lx=xdim, Ly=ydim, Lz=0, is2D=True)
-    points = np.hstack((mxy-L.center_xy, np.zeros((mxy.shape[0], 1))))
-    vor = freud.locality.Voronoi()
-    psi6 = freud.order.Hexatic(k=6, weighted=False)
-    vor.compute(system=(box, points))
-    psi6.compute(system=(box, points), neighbors=vor.nlist)
-    psi6_k = psi6.particle_order
-    psi6_avg = np.mean(np.abs(psi6_k))
-    # psi6_phase = np.abs(np.angle(psi6.particle_order))
-    nsides = np.array([polytope.shape[0] for polytope in vor.polytopes])
-    print(f"Global bond orientational order: {psi6_avg}")
-    # Plot the Voronoi tessellation and the hexatic order parameter
-    patches = []
-    for polytope in vor.polytopes:
-        poly = Polygon(polytope[:,:2]+L.center_xy, closed=True, facecolor='r')
-        patches.append(poly)
+    patches, nsides, psi6_avg = get_disclinations(L, mxy)
     collection = PatchCollection(patches, edgecolors='k', lw=0.3, cmap=cmap, norm=cnorm, alpha=0.6)
     collection.set_array(nsides)
     dax = ax.add_collection(collection)
@@ -122,3 +110,110 @@ def plot_molecules(ax, mnnxy, show_nn=False, s=100, mc='tab:red', nnc='yellow', 
     # Highlight the nearest-neighbors of selected ID in yellow
     if show_nn: ax.scatter(mnnxy[:,1:,0], mnnxy[:,1:,1], s=s, c=nnc, ec=ec, lw=lw, alpha=alpha, zorder=zorder)
     return ax
+
+def animate_simulation(data, save_filepath=None, frameskip=2, interval=33, repeat=True, figsize=(28, 10)):
+    """Animate basic information from the simulation data.""" 
+    # Define the lattice and lattice energies objects
+    lattice = KagomeLattice(**data['lattice_params'])
+    if data['energy_params']['lattice'] == 'triangular':
+        tle = TriangularLatticeEnergies(**data['energy_params']['lattice_params'])
+    else:
+        tle = None
+    # Get the molecule positions and global orientational order (if not already calculated)
+    mxy = lattice.get_latticesites().get()
+    mxy = mxy[data['ids']]
+    if 'globalboops' not in data:
+        data['globalboops'] = get_global_orientational_order(lattice, mxy)
+    # Define the colormap and normalization for the number of neighbors
+    try:
+        cmap = ListedColormap(np.vstack([
+            mpl.cm.get_cmap('PRGn_r', 10)(np.arange(10))[np.array([3,2,1,0])],
+            [[0.,0.,1.,1.], [0.9,0.9,0.9,0.9], [1.,0.,0.,1.]],
+            mpl.cm.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
+        ]))
+    except:
+        cmap = ListedColormap(np.vstack([
+            mpl.pyplot.get_cmap('PRGn_r', 10)(np.arange(10))[np.array([3,2,1,0])],
+            [[0.,0.,1.,1.], [0.9,0.9,0.9,0.9], [1.,0.,0.,1.]],
+            mpl.pyplot.get_cmap('PuOr_r', 10)(np.arange(10))[np.array([9,8,7,6])]
+        ]))
+    cnorm = Normalize(vmin=1-0.5, vmax=11+0.5)
+    # Create the initial patch collection for the disclinations
+    patches, nsides, psi6_avg = get_disclinations(lattice, mxy[0,:,:])
+    collection = PatchCollection(patches, edgecolors='k', lw=0.3, cmap=cmap, norm=cnorm, alpha=0.6)
+    collection.set_array(nsides)
+    # Create the figure and axes
+    fig = plt.figure(figsize=figsize, layout='constrained', dpi=72)
+    gs = GridSpec(4, 5, figure=fig)
+    axs = [
+        fig.add_subplot(gs[0, 0]),
+        fig.add_subplot(gs[1, 0]),
+        fig.add_subplot(gs[2, 0]),
+        fig.add_subplot(gs[3, 0]),
+        fig.add_subplot(gs[:, 1:3]),
+        fig.add_subplot(gs[:, 3:5]),
+    ]
+    fig.canvas.resizable = False
+    # Plot the initial data
+    line1, = axs[0].plot([], [])
+    line2, = axs[1].plot([], [])
+    line3, = axs[2].plot([], [])
+    line4, = axs[3].plot([], [])
+    line5, = axs[4].plot([], [], 'o', color='tab:red', lw=1.0, ms=5, mec='k')
+    col6 = axs[5].add_collection(collection)
+    line6, = axs[5].plot(mxy[0,:,0], mxy[0,:,1], '.', color='k', ms=2.5)
+    axs[0].set_title('Time intervals (s)')
+    axs[0].set_yscale('log')
+    axs[1].set_title('Temperature (K)')
+    axs[2].set_title('Total energy (Hartrees)')
+    axs[2].set_yscale('log')
+    axs[3].set_title('Global orientational order')
+    axs[3].set_xlabel('Time (s)')
+    axs[3].set_xscale('log')
+    axs[4].set_title('Molecule positions')
+    axs[4].set_xlabel('x (nm)', fontsize=14)
+    axs[4].set_ylabel('y (nm)', fontsize=14)
+    if tle is not None:
+        axs[4] = plot_latticeenergies(axs[4], tle, lattice.boxsize, nsamples=1000, cmap='viridis', alpha=0.5, zorder=1)
+    axs[4].set(xlim=lattice.xlim, ylim=lattice.ylim)
+    axs[5].set_title('Voronoi tessellation and disclinations')
+    axs[5].set_xlabel('x (nm)', fontsize=14)
+    axs[5].set_ylabel('y (nm)', fontsize=14)
+    axs[5].set(xlim=lattice.xlim, ylim=lattice.ylim)
+    # Define the frame generator and update plot functions
+    def frame_generator(data, lattice, mxy, frameskip):
+        nframes = data['times'].shape[0]
+        frame = 0
+        while frame < nframes:
+            times = data['times'][1:frame+1]
+            intervals = data['deltatimes'][1:frame+1]
+            temps = data['temperatures'][1:frame+1]
+            energies = data['totalenergies'][1:frame+1]
+            rxy = mxy[frame+1,:,:]
+            patches, nsides, _ = get_disclinations(lattice, rxy)
+            gboops = data['globalboops'][1:frame+1] 
+            frame += frameskip
+            yield times, intervals, temps, energies, gboops, rxy, patches, nsides
+    # Define the update plot function
+    def update_plot(data):
+        times, intervals, temps, energies, gboops, rxy, patches, nsides = data
+        line1.set_data(times, intervals)
+        line2.set_data(times, temps)
+        line3.set_data(times, energies)
+        line4.set_data(times, gboops)
+        line5.set_data(rxy[:,0], rxy[:,1])
+        collection.set_paths(patches)
+        collection.set_array(nsides)
+        line6.set_data(rxy[:,0], rxy[:,1])
+        for i in range(4):
+            axs[i].relim()
+            axs[i].autoscale_view()
+        return line1, line2, line3, line4, line5, collection, line6,
+    # Create the animation object and display the plot
+    ani = animation.FuncAnimation(fig, update_plot, frames=frame_generator(data, lattice, mxy, frameskip), blit=True, interval=interval, repeat=repeat, save_count=mxy.shape[0])
+    if save_filepath is not None:
+        writergif = animation.PillowWriter(fps=5)
+        writergif.setup(fig, save_filepath, dpi=72)
+        ani.save(save_filepath, writer=writergif, dpi='figure') 
+    plt.show()
+    return ani

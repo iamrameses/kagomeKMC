@@ -15,6 +15,19 @@ _scipy_H0 = lambda x: sp.special.struve(0, x)
 # Wrapper for Scipy's Neumann function of order 0 (a.k.a. Bessel function of the second kind of order 0)
 _scipy_Y0 = lambda x: sp.special.y0(x)
 
+def fill_nan_with_mean(arr):
+    """ Fill NaN values in a 1D array with the mean of surrounding values. """
+    # Identify indices of NaNs
+    nan_indices = np.isnan(arr)
+    
+    # Use interpolation to fill NaNs
+    arr[nan_indices] = np.interp(
+        np.flatnonzero(nan_indices),  # Indices of NaNs
+        np.flatnonzero(~nan_indices),  # Indices of non-NaNs
+        arr[~nan_indices]  # Values of non-NaNs
+    )
+    return arr
+
 def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, tl_range=[2, 78], kl_range=[32, 1254], show_topn=10):
     """Computes the ideal box widths for the triangular and Kagome lattices
 
@@ -139,8 +152,14 @@ def total_impurity_energies(r, Zval=1.0, epsr=4.22):
     # Compute the total impurity potential
     khr = kappa_h(eps_r=epsr) * r
     khr_cpu = khr.get()
+    if r.shape[0] == 1:
+        spH0 = _scipy_H0(khr_cpu)
+        spY0 = _scipy_Y0(khr_cpu)
+    else:
+        spH0 = fill_nan_with_mean(_scipy_H0(khr_cpu))
+        spY0 = fill_nan_with_mean(_scipy_Y0(khr_cpu))
     Va = cp.where(r!=0.0, 1./r, cp.zeros_like(r)) * (Zval / epsr)
-    Vb = cp.where(khr!=0.0, cp.array(_scipy_H0(khr_cpu) - _scipy_Y0(khr_cpu)), cp.zeros_like(khr))
+    Vb = cp.where(khr!=0.0, cp.array(spH0 - spY0), cp.zeros_like(khr))
     Vc = Va * (1.0 - (0.5 * pi * khr * Vb))
     # Reduce the dimensions of the array depending on dimensions of the input
     Vth = Vc if (r_ndims == 1) or (r_ndims is None) else cp.sum(Vc, axis=r_ndims-1)

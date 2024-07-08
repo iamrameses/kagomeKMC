@@ -59,6 +59,7 @@ class KagomeLattice(object):
         self._lc = float(lattice_constant)
         self._eb = float(energy_barrier)
         self._freq = float(debye_freq)
+        self._ttype = transition_type
         self._idtype = intdtype
         self._fdtype = floatdtype
         self._sqrt3 = sqrt(3)
