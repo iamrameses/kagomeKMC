@@ -8,13 +8,13 @@
 - System temperature changes according to a defined temperature curve.
 - Computations are performed on GPU via CuPy operations or Numba kernels.
 
-For basic functionality and running a simulation, see the example notebook `240609_kagomeKMC_v1_tutorial.ipynb`.
+For basic functionality and running a simulation, see the example notebook `kagomeKMC_v1_tutorial.ipynb`.
 
 ## Setting up environment on Berkeley Savio Servers
 On the Open OnDemand Dashboard, go to "Clusters" -> ">_BRC Shell Access", then load the modules we need.
 
 ```commandline
-module load python/3.11.4 cuda/12.2 gcc git
+module load cuda/12.2.1 gcc/13.2.0
 ```
 
 Navigate to location where you want the repository and clone it.
@@ -23,7 +23,7 @@ Navigate to location where you want the repository and clone it.
 cd /global/home/users/<your_username>/
 git clone https://github.com/iamrameses/kagomeKMC.git
 ```
-Since Savio gives users a limited amount of space in our home directories, its best to install all conda environments and packages in our scratch folder. We also set conda's default solver to `libmamba` as it usually much faster at installing packages (be patient, as it can take a while). If you encounter an error due to `libmamba`, just revert it back to the `classic` solver. It is important that `cupy` be installed last so that it is version `12.3.0` (for some reason, more recent versions result in a very slow simulation).
+Since Savio gives users a limited amount of space in our home directories, its best to install all conda environments and packages in our scratch folder. It is important that `cupy` be installed last so that it is version `12.3.0` (for some reason, more recent versions result in a very slow simulation).
 
 ```commandline
 KMCENV=/global/scratch/users/<your_username>/environments/kagomekmc
@@ -31,7 +31,6 @@ rm -rf $KMCENV
 export CONDA_PKGS_DIRS=/global/scratch/users/<your_username>/tmp/.conda
 conda create --prefix $KMCENV python=3.11
 source activate $KMCENV
-conda config --set solver libmamba
 conda install -c conda-forge cudatoolkit
 conda install -c conda-forge numba
 conda install -c conda-forge freud
@@ -40,7 +39,7 @@ conda install -c conda-forge cupy=12.3.0
 conda install -c anaconda ipykernel
 python -m ipykernel install --user --name=kagomekmc
 ```
-Trying to install `cudatoolkit`, `cupy`, and `numba` in one line caused issues for me, so I recommend installing them separately. It's also recommended to modify your `.bashsrc` file in your root folder by adding the following lines at the very end of the script, otherwise you'll have to keep typing the above commands just to activate your environment each time you open a new shell.
+Trying to install `cudatoolkit`, `numba`, and `freud` in one line  sometimes caused issues for me, so I recommend installing them separately. It's also recommended to modify your `.bashsrc` file in your root folder by adding the following lines at the very end of the script, otherwise you'll have to keep typing the above commands just to activate your environment each time you open a new shell.
 
 ```commandline
 export KMCENV=/global/scratch/users/<your_username>/environments/kagomekmc
@@ -59,7 +58,7 @@ Once you are given access to a Jupyter server and launch it, you can either run 
 You can also run the simulation from the Jupyter Server terminal window, by first modifying the `main.py` file (if needed) with your desired parameters and save it. The in the terminal window, navigate to the main folder of the repository (i.e. `~/kagomeKMC`). We can then load the required modules (if not already done), activate the appropriate conda environment, and run the simulation.
 
 ```commandline
-module load python/3.11.4 cuda/12.2 gcc
+module load cuda/12.2.1 gcc/13.2.0
 conda activate kagomekmc
 cd kagomeKMC
 python -m src.main
@@ -100,11 +99,11 @@ The following modifications should be made to the example job script file below:
 #SBATCH --gres=gpu:V100:1
 #
 # Wall clock limit:
-#SBATCH --time=48:00:00
+#SBATCH --time=72:00:00
 #
 ## Commands to run:
-module load python/3.11.4 cuda/12.2 gcc
-source activate kagomekmc
+module load cuda/12.2.1  gcc/13.2.0
+source activate $KMCENV
 cd kagomeKMC
 python -m src.main
 ```

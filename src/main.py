@@ -32,7 +32,7 @@ def main():
 
     # Energy parameters for the simulation
     energy_params = {
-        'lattice':'triangular',  # Lattice energy can either be 'triangular' or 'none'
+        'lattice':'none',  # Lattice energy can either be 'triangular' or 'none'
         'lattice_params':{
             'lattice_constant':3.936,  # Lattice constant of the triangular lattice (nm)
             'amplitude':-39.8,          # Amplitude of the triangular lattice energy (meV)
