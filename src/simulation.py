@@ -156,7 +156,7 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
         # Generate new random numbers every nwarmupsteps
         j = i % progress_freq
         if j == 0:
-            rands = cp.random.uniform(0., 0.9999999, size=(2*nwarmupsteps, 2))
+            rands = cp.random.uniform(0., 0.9999999, size=(progress_freq+1, 2))
             print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {time_i:g} s')
         # Get the temperature at the current time
         temp_i = float(temp(time_i))

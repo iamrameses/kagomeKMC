@@ -45,6 +45,8 @@ Trying to install `cudatoolkit`, `numba`, and `freud` in one line  sometimes cau
 ```commandline
 export KMCENV=/global/scratch/users/<your_username>/environments/kagomekmc
 export CONDA_PKGS_DIRS=/global/scratch/users/<your_username>/tmp/.conda
+module load gcc/13.2.0
+module load cuda/12.2.1
 ```
 
 ## Requesting a Jupyter Server interactive session with GPU 
