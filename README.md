@@ -14,12 +14,8 @@ For basic functionality and running a simulation, see the example notebook `kago
 On the Open OnDemand Dashboard, go to "Clusters" -> ">_BRC Shell Access", then load the modules we need.
 
 ```commandline
-<<<<<<< HEAD
 module load gcc/13.2.0
 module load cuda/12.2.1
-=======
-module load cuda/12.2.1 gcc/13.2.0
->>>>>>> 3cc181a7c45f2ed30f22de920ae9d467096ebf9c
 ```
 
 Navigate to location where you want the repository and clone it.
@@ -63,12 +59,8 @@ Once you are given access to a Jupyter server and launch it, you can either run 
 You can also run the simulation from the Jupyter Server terminal window, by first modifying the `main.py` file (if needed) with your desired parameters and save it. The in the terminal window, navigate to the main folder of the repository (i.e. `~/kagomeKMC`). We can then load the required modules (if not already done), activate the appropriate conda environment, and run the simulation.
 
 ```commandline
-<<<<<<< HEAD
 module load gcc/13.2.0
 module load cuda/12.2.1
-=======
-module load cuda/12.2.1 gcc/13.2.0
->>>>>>> 3cc181a7c45f2ed30f22de920ae9d467096ebf9c
 conda activate kagomekmc
 cd kagomeKMC
 python -m src.main
