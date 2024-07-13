@@ -101,20 +101,11 @@ The following modifications should be made to the example job script file below:
 #SBATCH --cpus-per-task=4
 ## Number of GPUs:
 #SBATCH --gres=gpu:V100:1
-<<<<<<< HEAD
 ## Wall clock limit:
 #SBATCH --time=72:00:00
 ## Commands to run:
 module load gcc/13.2.0
 module load cuda/12.2.1
-=======
-#
-# Wall clock limit:
-#SBATCH --time=72:00:00
-#
-## Commands to run:
-module load cuda/12.2.1  gcc/13.2.0
->>>>>>> 3cc181a7c45f2ed30f22de920ae9d467096ebf9c
 source activate $KMCENV
 cd kagomeKMC
 python -m src.main
