@@ -50,7 +50,7 @@ module load cuda/12.2.1
 ```
 
 ## Requesting a Jupyter Server interactive session with GPU 
-Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Savio partitions". Name the job whatever you like, but I would recommend the below settings, as A40 GPUs work well with this simulation (A5000 GPUs on the savio4_gpu partition also work well if the wait for A40s is too long).
+Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Savio partitions". Name the job whatever you like, but I would recommend the below settings, as A40 GPUs work well with this simulation (A40 or V100 GPUs on the savio3_gpu partition also work well if the wait for A5000s is too long).
 
 <img src="images/jupyter_server_request_recommended_settings.png" alt="Example molecules and disclinations plot" width="500">
 
@@ -86,15 +86,15 @@ The following modifications should be made to the example job script file below:
 ## Account:
 #SBATCH --account=<ACCOUNT_NAME>
 ## Partition:
-#SBATCH --partition=savio3_gpu
+#SBATCH --partition=savio4_gpu
 ## Number of nodes:
 #SBATCH --nodes=1
 ## Number of tasks (one for each GPU desired for use case) (example):
 #SBATCH --ntasks=1
 ## Processors per task:
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=4
 ## Number of GPUs:
-#SBATCH --gres=gpu:A40:1
+#SBATCH --gres=gpu:A5000:1
 ## Wall clock limit:
 #SBATCH --time=72:00:00
 ## Commands to run:
