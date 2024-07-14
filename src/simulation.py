@@ -145,6 +145,12 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
     end_gpu.synchronize()
     print(f'\nWarm-up steps completed in: {(end_cpu - start_cpu)/60:.3f} min CPU | {(cp.cuda.get_elapsed_time(start_gpu, end_gpu)/1000)/60:.3f} min GPU.')
 
+    # Timing the KMC steps
+    start_gpu = cp.cuda.Event()
+    end_gpu = cp.cuda.Event()
+    start_gpu.record()
+    start_cpu = time.perf_counter()
+
     # Actual KMC steps
     print(f'\nStarting KMC steps...')
     i = 0  # Elementary KMC step counter
@@ -214,6 +220,20 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
             break
         # Increment the KMC step counter
         i += 1
+
+    # Timing the KMC steps
+    end_cpu = time.perf_counter()
+    end_gpu.record()
+    end_gpu.synchronize()
+    cpu_time = (end_cpu - start_cpu)/60
+    gpu_time = (cp.cuda.get_elapsed_time(start_gpu, end_gpu)/1000)/60
+    if (cpu_time > 120) | (gpu_time > 120):
+        cpu_time = cpu_time / 60
+        gpu_time = gpu_time / 60
+        print(f'\nKMC steps completed in: {cpu_time:.3f} hrs CPU | {gpu_time:.3f} hrs GPU.')
+    else:
+        print(f'\nKMC steps completed in: {cpu_time:.3f} min CPU | {gpu_time:.3f} min GPU.')
+
     results = {
         'n_steps': i,
         'n_frames': framenum,
