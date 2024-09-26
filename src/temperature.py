@@ -56,4 +56,4 @@ def temperature_function(duration, temp_initial, temp_final=8.5, nsamples=1e7,  
         temps = temp_initial - (1/(2*duration)) * np.exp(cooling_constant * times)
     # Return cubic spline interpolation of temperatures
     tempfunction = sp.interpolate.CubicSpline(times, temps)
-    return tempfunction, temp_initial, temp_final
+    return tempfunction, temp_initial, temp_final, cooling_constant

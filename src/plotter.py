@@ -111,7 +111,7 @@ def plot_molecules(ax, mnnxy, show_nn=False, s=100, mc='tab:red', nnc='yellow', 
     if show_nn: ax.scatter(mnnxy[:,1:,0], mnnxy[:,1:,1], s=s, c=nnc, ec=ec, lw=lw, alpha=alpha, zorder=zorder)
     return ax
 
-def animate_simulation(data, save_filepath=None, frameskip=2, interval=33, repeat=True, figsize=(28, 10)):
+def animate_simulation(data, save_filepath=None, frameskip=2, interval=33, repeat=True, figsize=(28, 10), dpi=72):
     """Animate basic information from the simulation data.""" 
     # Define the lattice and lattice energies objects
     lattice = KagomeLattice(**data['lattice_params'])
@@ -143,7 +143,7 @@ def animate_simulation(data, save_filepath=None, frameskip=2, interval=33, repea
     collection = PatchCollection(patches, edgecolors='k', lw=0.3, cmap=cmap, norm=cnorm, alpha=0.6)
     collection.set_array(nsides)
     # Create the figure and axes
-    fig = plt.figure(figsize=figsize, layout='constrained', dpi=72)
+    fig = plt.figure(figsize=figsize, layout='constrained', dpi=dpi)
     gs = GridSpec(4, 5, figure=fig)
     axs = [
         fig.add_subplot(gs[0, 0]),
@@ -184,7 +184,7 @@ def animate_simulation(data, save_filepath=None, frameskip=2, interval=33, repea
     def frame_generator(data, lattice, mxy, frameskip):
         nframes = data['times'].shape[0]
         frame = 0
-        while frame < nframes:
+        while frame < (nframes-1):
             times = data['times'][1:frame+1]
             intervals = data['deltatimes'][1:frame+1]
             temps = data['temperatures'][1:frame+1]
@@ -212,8 +212,13 @@ def animate_simulation(data, save_filepath=None, frameskip=2, interval=33, repea
     # Create the animation object and display the plot
     ani = animation.FuncAnimation(fig, update_plot, frames=frame_generator(data, lattice, mxy, frameskip), blit=True, interval=interval, repeat=repeat, save_count=mxy.shape[0])
     if save_filepath is not None:
-        writergif = animation.PillowWriter(fps=5)
-        writergif.setup(fig, save_filepath, dpi=72)
-        ani.save(save_filepath, writer=writergif, dpi='figure') 
+        if '.gif' in save_filepath:
+            writergif = animation.PillowWriter(fps=5)
+            writergif.setup(fig, save_filepath, dpi=dpi)
+            ani.save(save_filepath, writer=writergif, dpi='figure') 
+        elif '.mp4' in save_filepath:
+            writermp4 = animation.FFMpegWriter(fps=5)
+            writermp4.setup(fig, save_filepath, dpi=dpi)
+            ani.save(save_filepath, writer=writermp4, dpi='figure')
     plt.show()
     return ani

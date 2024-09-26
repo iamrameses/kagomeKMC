@@ -60,7 +60,7 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
     )
 
     # Set up the temperature function for the simulation
-    temp, Ti, Tf = temperature_function(duration, **temp_params)
+    temp, Ti, Tf, Tcc = temperature_function(duration, **temp_params)
     
     # Calculate the number of frames to sample during the simulation
     nframes = int((Ti - Tf) * frames_per_kelvin)
@@ -86,9 +86,11 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
     times = cp.zeros((nframes+1), dtype=lattice._fdtype)
     ids = cp.zeros((nframes+1, nmolecules), dtype=lattice._idtype)
     deltatimes = cp.zeros((nframes+1), dtype=lattice._fdtype)
-    temperatures = cp.zeros((nframes+1), dtype=lattice._fdtype)
+    temperatures = np.zeros((nframes+1), dtype=lattice._fdtype)
     totalenergies = cp.zeros((nframes+1), dtype=lattice._fdtype)
     globalboops = np.zeros((nframes+1), dtype=lattice._fdtype)
+    elapsedtimes = np.zeros((nframes+1), dtype=lattice._fdtype)
+    kmcsteps = np.zeros((nframes+1), dtype=lattice._fdtype)
 
     # Store the initial positions of the molecules
     ids[0,:] = mids 
@@ -143,7 +145,7 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
     end_cpu = time.perf_counter()
     end_gpu.record()
     end_gpu.synchronize()
-    print(f'\nWarm-up steps completed in: {(end_cpu - start_cpu)/60:.3f} min CPU | {(cp.cuda.get_elapsed_time(start_gpu, end_gpu)/1000)/60:.3f} min GPU.')
+    print(f'\n{nwarmupsteps} Warm-up steps completed in: {(end_cpu - start_cpu)/60:.3f} min CPU | {(cp.cuda.get_elapsed_time(start_gpu, end_gpu)/1000)/60:.3f} min GPU.')
 
     # Timing the KMC steps
     start_gpu = cp.cuda.Event()
@@ -205,8 +207,13 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
             globalboops[framenum+1] = get_global_orientational_order(lattice, lxy[ids[framenum+1]].get(), box=box, vor=vor, psi6=psi6)
             # Update the target temperature for the next frame
             temp_target = temp_i - (1/frames_per_kelvin)
+            # Current elapsed time of simulation
+            end_cpu = time.perf_counter()
+            cpu_time = (end_cpu - start_cpu)
+            elapsedtimes[framenum+1] = cpu_time
             # Update the frame number
             framenum += 1
+            kmcsteps[framenum+1] = i+1
             print(f'KMC step {i+1:g} | Temperature {temp_i:.4f} K | Simulation time = {time_i:g} s')
         else:
             # Update the molecule's new position to the chosen nearest neighbor
@@ -230,19 +237,25 @@ def simulate(lattice, energy_params, temp_params, molecule_params, duration, fra
     if (cpu_time > 120) | (gpu_time > 120):
         cpu_time = cpu_time / 60
         gpu_time = gpu_time / 60
-        print(f'\nKMC steps completed in: {cpu_time:.3f} hrs CPU | {gpu_time:.3f} hrs GPU.')
+        time_unit = 'hrs'
     else:
-        print(f'\nKMC steps completed in: {cpu_time:.3f} min CPU | {gpu_time:.3f} min GPU.')
+        time_unit = 'min'
+    print(f'\nKMC steps completed in: {cpu_time:.3f} {time_unit} CPU | {gpu_time:.3f} {time_unit} GPU.')
 
     results = {
         'n_steps': i,
         'n_frames': framenum,
+        'cpu_time': cpu_time,
+        'gpu_time': gpu_time,
+        'time_unit': time_unit,
         'times': times[:framenum].get(),
         'ids': ids[:framenum].get(),
         'deltatimes': deltatimes[:framenum].get(),
-        'temperatures': temperatures[:framenum].get(),
+        'temperatures': temperatures[:framenum],
         'totalenergies': totalenergies[:framenum].get(),
         'globalboops': globalboops[:framenum],
+        'elapsedtimes': elapsedtimes[:framenum],
+        'kmcsteps': kmcsteps[:framenum],
         'energy_params': energy_params,
         'temp_params': temp_params,
         'molecule_params': molecule_params,

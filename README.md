@@ -50,7 +50,7 @@ module load cuda/12.2.1
 ```
 
 ## Requesting a Jupyter Server interactive session with GPU 
-Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Savio partitions". Name the job whatever you like, but I would recommend the below settings, as A40 GPUs work well with this simulation (A40 or V100 GPUs on the savio3_gpu partition also work well if the wait for A5000s is too long).
+Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Savio partitions". Name the job whatever you like, but I would recommend the below settings, as A5000 GPUs work well with this simulation (A40 or V100 GPUs on the savio3_gpu partition also work well if the wait for A5000s is too long).
 
 <img src="images/jupyter_server_request_recommended_settings.png" alt="Example molecules and disclinations plot" width="500">
 
@@ -58,12 +58,12 @@ Go to "Interactive Apps" and select "Jupyter Server - compute via Slurm using Sa
 Once you are given access to a Jupyter server and launch it, you can either run the simulation from a Jupyter notebook or from a terminal window. If you use a Jupyter notebook, just make sure you change the kernel of the notebook to the one you created in the steps above (i.e. `kagomekmc`). From there you can follow similar steps as those shown in the tutorial notebook `examples/240609_kagomeKMC_v1_tutorial.ipynb`.
 
 ## Running a simulation from a Jupyter Server interaction session terminal
-You can also run the simulation from the Jupyter Server terminal window, by first modifying the `main.py` file (if needed) with your desired parameters and save it. The in the terminal window, navigate to the main folder of the repository (i.e. `~/kagomeKMC`). We can then load the required modules (if not already done), activate the appropriate conda environment, and run the simulation.
+You can also run the simulation from the Jupyter Server terminal window, by first modifying the `main.py` file (if needed) with your desired parameters and save it. Then in the terminal window, navigate to the main folder of the repository (i.e. `~/kagomeKMC`). We can then load the required modules (if not already done), activate the appropriate conda environment, and run the simulation.
 
 ```commandline
 module load gcc/13.2.0
 module load cuda/12.2.1
-conda activate kagomekmc
+source activate $KMCENV
 cd kagomeKMC
 python -m src.main
 ```

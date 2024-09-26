@@ -28,7 +28,7 @@ def fill_nan_with_mean(arr):
     )
     return arr
 
-def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, tl_range=[2, 78], kl_range=[32, 1254], show_topn=10):
+def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, show_topn=10, return_values=False):
     """Computes the ideal box widths for the triangular and Kagome lattices
 
     Parameters
@@ -41,6 +41,8 @@ def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, tl_range=[2, 7
         The target maximum box width (in nm) to consider
     show_topn : int
         The number of top box widths to display
+    return_values : bool
+        Whether to return the computed values or not
 
     Returns
     -------
@@ -51,16 +53,17 @@ def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, tl_range=[2, 7
     tle_cols = np.array(tle_x//tri_lc, dtype=int)
     tle_rows = np.array(tle_cols/np.sqrt(3), dtype=int)
     tle_y = tri_lc * np.sqrt(3) * tle_rows
-    print(f"Triangular lattice test widths (first and last value): {tle_x[0]}, {tle_x[-1]}")
     kl_x = kag_lc * np.arange(int(2*tri_lc/kag_lc), int(np.ceil(target_width/kag_lc))+1)
     kl_cols = np.array(kl_x//kag_lc, dtype=int)
     kl_rows = np.array(np.round(kl_cols/np.sqrt(3)), dtype=int)
     kl_y = kag_lc * np.sqrt(3) * kl_rows
-    print(f"\nKagome lattice test widths (first and last value): {kl_x[0]}, {kl_x[-1]}\n")
     min_ids = np.zeros(len(kl_x), dtype=int)
     min_vals = np.zeros(len(kl_x))
     min_diffs = np.zeros(len(kl_x))
-    print(f"Top {int(show_topn)} ideal box widths (sorted by L2-norm error between lattice dimensions):")
+    if not return_values:
+        print(f"Triangular lattice test widths (first and last value): {tle_x[0]}, {tle_x[-1]}")
+        print(f"\nKagome lattice test widths (first and last value): {kl_x[0]}, {kl_x[-1]}\n")
+        print(f"Top {int(show_topn)} ideal box widths (sorted by L2-norm error between lattice dimensions):")
     for i, (j, k) in enumerate(zip(kl_x, kl_y)):
         xdiffs = np.abs(tle_x-j)**2
         ydiffs = np.abs(tle_y-k)**2
@@ -71,8 +74,46 @@ def ideal_boxwidths(tri_lc=3.936, kag_lc=0.246, target_width=300, tl_range=[2, 7
     sort_ids = np.argsort(min_diffs)
     min_vals = min_vals[sort_ids]
     min_diffs = min_diffs[sort_ids]
-    for i in range(show_topn):
-        print(f"#{i+1}: {min_vals[i]:.3f}nm | L2-norm error: {min_diffs[i]:.4f}")
+    if return_values:
+        return min_vals, min_diffs
+    else:
+        for i in range(show_topn):
+            print(f"#{i+1}: {min_vals[i]:.3f}nm | L2-norm error: {min_diffs[i]:.4f}")
+
+def ideal_tri_lc(max_error, max_width=300, tri_lc=3.936, kag_lc=0.246, target_width=300, show_topn=10):
+    """Computes the ideal triangular lattice constant for the Kagome lattice
+
+    Parameters
+    ----------
+    max_error : float
+        The maximum error allowed for the ideal box width (in nm)
+    max_width : float
+        The maximum width of the box to consider (in nm)
+    tri_lc : float
+        The initial guess for the lattice constant of the triangular lattice (in nm)
+    kag_lc : float
+        The lattice constant of the Kagome lattice (in nm)
+    target_width : float
+        The target maximum box width (in nm) to consider
+    show_topn : int
+        The number of top box widths to display
+
+    Returns
+    -------
+    None
+    
+    """
+    delta_lc = 0.000
+    flag = True
+    while flag:
+        test_lc = tri_lc - delta_lc
+        [min_vals, min_diffs] = ideal_boxwidths(tri_lc=test_lc, kag_lc=kag_lc, target_width=target_width, return_values=True)
+        if (min_diffs[0] > max_error) or (min_vals[0] > max_width):
+            delta_lc = delta_lc + 0.001
+        else:
+            flag = False
+    print(f'Closest tri_lc value found at: {test_lc}\n\n')
+    ideal_boxwidths(tri_lc=test_lc, kag_lc=kag_lc, target_width=target_width, show_topn=show_topn)
 
 def interaction_energy_function(lattice, method='total_impurity', energy_params=None, nsamples=5e5):
     """Computes the interaction energy function for the lattice
@@ -203,6 +244,10 @@ class TriangularLatticeEnergies:
         The lattice constant of the triangular lattice
     amplitude : float
         The amplitude of the potential energy in meV
+    angle : float
+        The orientation angle of the lattice in radians
+    shift : list
+        The shift in the x and y coordinates of the lattice
 
     Methods
     -------
